@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_snake_game/direction_type.dart';
 
+import 'control_panel.dart';
 import 'direction.dart';
 import 'piece.dart';
 
@@ -87,8 +88,19 @@ class _GamePageState extends State<GamePage> {
   }
 
   bool detectCollision(Offset position) {
-    // TODO
+    if (position.dx >= upperBoundX && direction == Direction.right) {
+      return true;
+    } else if (position.dx <= lowerBoundX && direction == Direction.left) {
+      return true;
+    } else if (position.dy >= upperBoundY && direction == Direction.down) {
+      return true;
+    } else if (position.dy <= lowerBoundY && direction == Direction.up) {
+      return true;
+    }
+
+    return false;
   }
+
   //* Displays a dialog when the snake collides with any of the boundaries
   //* it displays the user score and a button to restart the game
   void showGameOverDialog() {
@@ -143,6 +155,13 @@ class _GamePageState extends State<GamePage> {
   Future<Offset> getNextPosition(Offset position) async {
     Offset nextPosition;
 
+    if (detectCollision(position) == true) {
+      if (timer != null && timer.isActive) timer.cancel();
+      await Future.delayed(
+          Duration(milliseconds: 500), () => showGameOverDialog());
+      return position;
+    }
+
     if (direction == Direction.right) {
       nextPosition = Offset(position.dx + step, position.dy);
     } else if (direction == Direction.left) {
@@ -157,7 +176,26 @@ class _GamePageState extends State<GamePage> {
   }
 
   void drawFood() {
-    // TODO
+    if (foodPosition == null) {
+      foodPosition = getRandomPositionWithinRange();
+    }
+
+    if (foodPosition == positions[0]) {
+      length++;
+      speed = speed + 0.25;
+      score = score + 5;
+      changeSpeed();
+
+      foodPosition = getRandomPositionWithinRange();
+    }
+
+    food = Piece(
+      posX: foodPosition.dx.toInt(),
+      posY: foodPosition.dy.toInt(),
+      size: step,
+      color: Colors.red,
+      isAnimated: true,
+    );
   }
 
   //* create a list based on the position of the snake on the screen
@@ -195,7 +233,11 @@ class _GamePageState extends State<GamePage> {
   //* implements Control Panel
   //* displays four circular btns on the screen to control movement of snake
   Widget getControls() {
-    // TODO
+    return ControlPanel(
+      onTapped: (Direction newDirection) {
+        direction = newDirection;
+      },
+    );
   }
 
   //* Rounds off the passed in integer to the nearest 'step' value
@@ -210,17 +252,39 @@ class _GamePageState extends State<GamePage> {
     return output;
   }
 
+  //* resets the timer with a duration that factors in speed.
+  //* You control speed and increase it every time the snake eats the food.
+  //* Finally, on every tick of the timer, you call setState(),
+  //* which rebuilds the whole UI.
+  //* This happens at a rate you control using speed.
   void changeSpeed() {
-    // TODO
+    if (timer != null && timer.isActive) timer.cancel();
+
+    timer = Timer.periodic(Duration(milliseconds: 200 ~/ speed), (timer) {
+      setState(() {});
+    });
   }
 
   Widget getScore() {
-    // TODO
+    return Positioned(
+      top: 50.0,
+      right: 40.0,
+      child: Text(
+        "Score: " + score.toString(),
+        style: TextStyle(fontSize: 24.0),
+      ),
+    );
   }
 
   void restart() {
-    // TODO
+    score = 0;
+    length = 5;
+    positions = [];
+    direction = getRandomDirection();
+    speed = 1;
+    changeSpeed();
   }
+
   //* Draws a border along the edge of the screen to represent the play area
   Widget getPlayAreaBorder() {
     return Positioned(
@@ -262,7 +326,15 @@ class _GamePageState extends State<GamePage> {
       body: Container(
         color: Colors.amber,
         child: Stack(
-          children: getPieces(),
+          children: [
+            getPlayAreaBorder(),
+            Stack(
+              children: getPieces(),
+            ),
+            getControls(),
+            food,
+            getScore(),
+          ],
         ),
       ),
     );
